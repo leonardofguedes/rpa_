@@ -1,0 +1,3 @@
+robocorp-tasks
+selenium
+rpaframework
