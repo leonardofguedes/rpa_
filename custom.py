@@ -327,14 +327,16 @@ class CustomSelenium:
         """
     
         try:
+            self.logger.info("Attempting to open the browser.")
             self.browser.open_available_browser(url)
             self.logger.info(f"Opening URL: {url}")
 
             # Wait for the search button to be visible and click it
-            self.browser.wait_until_element_is_visible('id=ybar-sbq', timeout=30)
+            self.logger.info("Waiting for the search box to be visible.")
+            self.browser.wait_until_element_is_visible('id=ybar-sbq', timeout=60)
             
             # Locate the search box and input the search term
-            search_box = self.browser.find_element('name=p')
+            search_box = self.browser.find_element('id=ybar-sbq')
             self.browser.input_text(search_box, word)
             self.browser.submit_form(search_box)
             self.logger.info(f"Input search keyword: {word}")
