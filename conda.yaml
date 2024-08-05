@@ -10,7 +10,6 @@ dependencies:
   - robocorp-truststore=0.8.0     # https://pypi.org/project/robocorp-truststore/
   - pip=23.2.1                    # https://pip.pypa.io/en/stable/news
   - pip:
-    - rpaframework==28.0.0        # https://rpaframework.org/releasenotes.html
-    - robocorp==1.4.0             # https://pypi.org/project/robocorp
-    - robocorp-browser==2.2.1     # https://pypi.org/project/robocorp-browser
-    - requests==2.31.0            # https://pypi.org/project/requests
+    - rpaframework==28.6.1        # https://rpaframework.org/releasenotes.html
+    - robocorp==2.1.0             # https://pypi.org/project/robocorp
+    - robocorp-browser==2.3.3     # https://pypi.org/project/robocorp-browser
