@@ -6,13 +6,24 @@ import time
 import logging
 from datetime import datetime
 from RPA.Excel.Files import Files
-from selenium.webdriver.common.keys import Keys
 from RPA.Browser.Selenium import Selenium
 from selenium.webdriver.common.by import By
 from robocorp.tasks import get_output_dir
 from datetime import datetime, timedelta
 from selenium.common.exceptions import NoSuchElementException
 from dateutil.relativedelta import relativedelta
+from selenium.webdriver.chrome.options import Options
+
+def create_headless_options():
+    options = Options()
+    options.add_argument("--headless")
+    options.add_argument("--window-size=1920,1080")
+    options.add_argument("--disable-gpu")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    
+    return options
+
 
 class News:
     def __init__(self, title, link, source, time, description, image_url):
@@ -417,13 +428,17 @@ class CustomSelenium:
     
         try:
             self.logger.info("Attempting to open the browser.")
+
+            # headless
+            options = create_headless_options()
+
             self.retry_action(lambda: self.browser.open_available_browser(url))
             self.browser.maximize_browser_window()
             self.logger.info(f"Opening URL: {url}")
 
             # Wait for the search button to be visible and click it
             self.logger.info("Waiting for the search box to be visible.")
-            self.browser.wait_until_element_is_visible('id=ybar-sbq', timeout=60)
+            self.browser.wait_until_element_is_visible('id=ybar-sbq', timeout=180)
             
             # Locate the search box and input the search term
             search_box = self.browser.find_element('id=ybar-sbq')

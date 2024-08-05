@@ -1,8 +1,8 @@
 [
     {
         "payload": {
-            "search_keyword": "Yahoo News",
-            "filter_months": 3
+            "search_phrase": "Yahoo News",
+            "months": 3
         },
         "files": {}
     }
