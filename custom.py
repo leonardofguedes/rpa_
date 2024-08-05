@@ -14,6 +14,17 @@ from datetime import datetime, timedelta
 from selenium.common.exceptions import NoSuchElementException
 from dateutil.relativedelta import relativedelta
 
+class News:
+    def __init__(self, title, link, source, time, description, image_url):
+        self.title = title
+        self.link = link
+        self.source = source
+        self.time = time
+        self.description = description
+        self.image_url = image_url
+
+    def __repr__(self):
+        return f"News(title={self.title}, link={self.link}, source={self.source}, time={self.time}, description={self.description}, image_url={self.image_url})"
 
 
 class CustomSelenium:
@@ -26,6 +37,12 @@ class CustomSelenium:
         if not os.path.exists(self.pictures_dir):
             os.makedirs(self.pictures_dir)
         
+    def ensure_directory_permissions(self, path):
+        """Ensures the specified directory is writable."""
+        if not os.access(path, os.W_OK):
+            self.logger.error(f"Directory {path} is not writable.")
+            raise PermissionError(f"Directory {path} is not writable.")
+
     @staticmethod
     def download_image(url, save_path):
         """
@@ -48,6 +65,16 @@ class CustomSelenium:
             print(f"Error downloading image: {e}")
             return False
     
+    def ensure_directory_exists(self, path):
+        """Ensures the specified directory exists, creates it if not."""
+        try:
+            if not os.path.exists(path):
+                os.makedirs(path)
+            return True
+        except OSError as e:
+            self.logger.error(f"Error creating directory {path}: {e}")
+            return False
+
     def find_and_click_news_link(self):
         """Finds and clicks the 'News' link on the page.
 
@@ -76,7 +103,7 @@ class CustomSelenium:
                 else:
                     self.logger.error("Exceeded maximum attempts to find and click 'News' element.")
                     raise  # Re-raise the last exception
-
+    
     def filter_articles_by_date(self, months):
         """Filters articles based on the specified number of months.
 
@@ -87,7 +114,7 @@ class CustomSelenium:
         number of months.
         """
         cutoff_date = datetime.now() - relativedelta(months=months)
-        filtered_articles = [article for article in self.articles if self.relative_time_to_absolute(article['time']) >= cutoff_date]
+        filtered_articles = [article for article in self.articles if self.relative_time_to_absolute(article.time) >= cutoff_date]
         self.articles = filtered_articles
 
     def collect_articles(self):
@@ -103,54 +130,17 @@ class CustomSelenium:
         """
         articles_xpath = 'xpath://ol[@class="mb-15 reg searchCenterMiddle"]//li//div[@class="dd NewsArticle"]'
         elements = self.browser.get_webelements(articles_xpath)
-        pictures_dir = os.path.join(get_output_dir(), 'pictures')
 
-        if not os.path.exists(pictures_dir):
-            os.makedirs(pictures_dir)
-
-        if elements:
-            for element in elements:
-                title_element = element.find_element(By.XPATH, './/h4[@class="s-title fz-16 lh-20"]/a')
-                title = title_element.get_attribute('title')
-                link = title_element.get_attribute('href')
-                
-                source_element = element.find_element(By.XPATH, './/span[@class="s-source mr-5 cite-co"]')
-                source = source_element.text if source_element else 'N/A'
-                
-                time_element = element.find_element(By.XPATH, './/span[@class="fc-2nd s-time mr-8"]')
-                time = time_element.text if time_element else 'N/A'
-                
-                description_element = element.find_element(By.XPATH, './/p[@class="s-desc"]')
-                description = description_element.text if description_element else 'N/A'
-                
-                # Try to find the image element
-                image_url = 'N/A'
-                image_file_name = 'N/A'
-                try:
-                    image_element = element.find_element(By.XPATH, './/a[@class="thmb "]/img')
-                    image_url = image_element.get_attribute('src') if image_element else 'N/A'
-                    if image_url.startswith("http"):
-                        image_file_name = f"{title.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d%H%M%S')}.jpg"
-                        image_save_path = os.path.join(pictures_dir, image_file_name)
-                        if self.download_image(image_url, image_save_path):
-                            image_file_name = os.path.basename(image_save_path)
-                        else:
-                            image_file_name = 'N/A'
-                    else:
-                        self.logger.warning(f"Invalid image URL for article: {title}")
-                except NoSuchElementException:
-                    self.logger.warning(f"Image element not found for article: {title}")
-                
-                self.articles.append({
-                    "title": title,
-                    "link": link,
-                    "source": source,
-                    "time": time,
-                    "description": description,
-                    "image": image_file_name
-                })
-        else:
+        if not elements:
             self.logger.info("No articles found.")
+            return
+
+        for element in elements:
+            try:
+                article = self.extract_article_data(element)
+                self.articles.append(article)
+            except Exception as e:
+                self.logger.error(f"Error extracting article data: {e}")
 
     def retry_action(self, func, retries=3, delay=2):
         """
@@ -244,10 +234,58 @@ class CustomSelenium:
         else:
             print(f"No match for relative_time: {relative_time}")  # Debugging print
         return now  # If parsing fails, return the current time
+    
+    def get_element_text(self, parent, xpath):
+        """Gets the text of an element if it exists, otherwise returns None."""
+        try:
+            return parent.find_element(By.XPATH, xpath).text
+        except NoSuchElementException:
+            return None
+    
+    def extract_article_data(self, element):
+        """Extracts data from a single article element."""
+        title_element = element.find_element(By.XPATH, './/h4[@class="s-title fz-16 lh-20"]/a')
+        title = title_element.get_attribute('title')
+        link = title_element.get_attribute('href')
+
+        source = self.get_element_text(element, './/span[@class="s-source mr-5 cite-co"]')
+        time = self.get_element_text(element, './/span[@class="fc-2nd s-time mr-8"]')
+        description = self.get_element_text(element, './/p[@class="s-desc"]')
+        image_url = self.get_image_url(element, title)
+        
+        return News(
+            title=title,
+            link=link,
+            source=source or 'N/A',
+            time=time or 'N/A',
+            description=description or 'N/A',
+            image_url=image_url or 'N/A'
+        )
+ 
+    def get_image_url(self, element, title):
+        """Attempts to download the article's image and return its URL."""
+        try:
+            image_element = element.find_element(By.XPATH, './/a[@class="thmb "]/img')
+            image_url = image_element.get_attribute('src')
+            
+            if image_url.startswith("http"):
+                image_file_name = f"{title.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d%H%M%S')}.jpg"
+                image_save_path = os.path.join(self.pictures_dir, image_file_name)
+                if self.download_image(image_url, image_save_path):
+                    return os.path.basename(image_save_path)
+                else:
+                    self.logger.warning(f"Failed to download image from URL: {image_url}")
+                    return None
+            else:
+                self.logger.warning(f"Invalid image URL for article: {title} - {image_url}")
+                return None
+        except NoSuchElementException:
+            self.logger.warning(f"Image element not found for article: {title}")
+            return None
 
     def print_articles(self):
         for index, article in enumerate(self.articles, start=1):
-            print(f"Artigo {index}:\nTítulo: {article['title']}\nLink: {article['link']}\nFonte: {article['source']}\nTempo: {article['time']}\nDescrição: {article['description']}\n")
+            print(f"Article {index}:\nTitle: {article.title}\nLink: {article.link}\nSource: {article.source}\nTime: {article.time}\nDescription: {article.description}\n")
 
     def save_results_to_excel(self):
         """Saves the collected articles to an Excel file.
@@ -278,25 +316,25 @@ class CustomSelenium:
         ]
         
         for article in self.articles:
-            absolute_time = self.relative_time_to_absolute(article['time'])
+            absolute_time = self.relative_time_to_absolute(article.time)
             time = absolute_time.strftime('%Y-%m-%d %H:%M:%S')
             self.logger.debug(f"Adding article to Excel: {article}")
-            title_length = len(article['title'])
-            description_length = len(article['description'])
-            title_contains_money = self.contains_money(article['title'])
-            description_contains_money = self.contains_money(article['description'])
+            title_length = len(article.title)
+            description_length = len(article.description)
+            title_contains_money = self.contains_money(article.title)
+            description_contains_money = self.contains_money(article.description)
             
             data.append([
-                article['title'],
+                article.title,
                 title_length,
                 title_contains_money,
-                article['link'],
-                article['source'],
+                article.link,
+                article.source,
                 time,
-                article['description'],
+                article.description,
                 description_length,
                 description_contains_money,
-                article['image'],
+                article.image_url,
             ])
         
         self.logger.debug("Data prepared for insertion into Excel.")
@@ -308,7 +346,7 @@ class CustomSelenium:
         output_path = os.path.join(get_output_dir(), file_name)
         excel.save_workbook(output_path)
         self.logger.info(f"Results saved to: {output_path}")
-    
+
     def wait_for_new_tab_to_load(self):
         """Waits for a new tab to load by checking the number of window handles.
 
@@ -347,6 +385,22 @@ class CustomSelenium:
                 time.sleep(5)
         raise AssertionError(f"Element {xpath} not visible after {timeout} seconds.")
 
+    def close_browser(self):
+        """Closes the browser and cleans up resources."""
+        try:
+            self.browser.close_browser()
+        except Exception as e:
+            self.logger.error(f"Error closing browser: {e}")
+
+    def switch_to_new_tab(self):
+        """Switches to the newly opened browser tab.
+
+        This method uses the switch_window method to change the context to the newly
+        opened browser tab and logs the action.
+        """
+        self.browser.switch_window(locator='NEW')
+        self.logger.info("Switched to the new tab.")
+    
     def open_browser(self, url: str, word: str, months: int):
         """Opens a browser, searches for a keyword, and processes the results.
 
@@ -358,6 +412,7 @@ class CustomSelenium:
         Args:
             url (str): The URL to open.
             word (str): The search keyword to input.
+            months (int): The number of months to filter the articles by.
         """
     
         try:
@@ -398,15 +453,9 @@ class CustomSelenium:
             self.save_results_to_excel()
         except AssertionError as e:
             self.logger.error(f"Error waiting for the element: {e}")
+        finally:
+            self.close_browser()
 
-    def switch_to_new_tab(self):
-        """Switches to the newly opened browser tab.
-
-        This method uses the switch_window method to change the context to the newly
-        opened browser tab and logs the action.
-        """
-        self.browser.switch_window(locator='NEW')
-        self.logger.info("Switched to the new tab.")
 
 
         
