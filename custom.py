@@ -326,10 +326,14 @@ class CustomSelenium:
             word (str): The search keyword to input.
         """
         self.browser.open_available_browser(url)
-        self.browser.input_text('name=p', word + Keys.ENTER)
-        self.logger.info("Waiting for the results page to load.")
-        
+        self.logger.info(f"Opening URL: {url}")
+    
         try:
+            # Wait for the search input to be visible and interact with it
+            self.browser.wait_until_element_is_visible('name=p', timeout=30)
+            self.browser.input_text('name=p', word + Keys.ENTER)
+            self.logger.info(f"Input search keyword: {word}")
+
             # Wait until the results page is loaded in the new tab
             self.wait_for_new_tab_to_load()
             self.switch_to_new_tab()
