@@ -152,6 +152,40 @@ class CustomSelenium:
         else:
             self.logger.info("No articles found.")
 
+    def retry_action(self, func, retries=3, delay=2):
+        """
+        Attempts to execute the provided function multiple times with a delay between attempts.
+
+        Args:
+            func (function): The function to attempt.
+            retries (int): Number of retries in case of failure.
+            delay (int): Delay in seconds between attempts.
+
+        Returns:
+            The result of the function if successful.
+
+        Raises:
+            Exception: If the function fails after the specified number of retries.
+        """
+        start_time = time.time()
+        for attempt in range(1, retries + 1):
+            try:
+                self.logger.info(f"Attempt {attempt} of {retries} for function {func.__name__}.")
+                result = func()
+                end_time = time.time()
+                self.logger.info(f"Attempt {attempt} successful after {end_time - start_time:.2f} seconds.")
+                return result
+            except Exception as e:
+                self.logger.error(f"Error on attempt {attempt} for function {func.__name__}: {e}")
+                if attempt < retries:
+                    self.logger.info(f"Retrying after {delay} seconds...")
+                    time.sleep(delay)
+                else:
+                    self.logger.error(f"All {retries} attempts failed for function {func.__name__}.")
+                    raise Exception(f"Action {func.__name__} failed after {retries} retries.") from e
+        end_time = time.time()
+        self.logger.info(f"Total time spent on retries: {end_time - start_time:.2f} seconds.")
+
     @staticmethod
     def contains_money(text):
         """Checks if the provided text contains any amount of money.
@@ -328,7 +362,8 @@ class CustomSelenium:
     
         try:
             self.logger.info("Attempting to open the browser.")
-            self.browser.open_available_browser(url)
+            self.retry_action(lambda: self.browser.open_available_browser(url))
+            self.browser.maximize_browser_window()
             self.logger.info(f"Opening URL: {url}")
 
             # Wait for the search button to be visible and click it
