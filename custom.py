@@ -325,13 +325,18 @@ class CustomSelenium:
             url (str): The URL to open.
             word (str): The search keyword to input.
         """
-        self.browser.open_available_browser(url)
-        self.logger.info(f"Opening URL: {url}")
     
         try:
-            # Wait for the search input to be visible and interact with it
-            self.browser.wait_until_element_is_visible('name=p', timeout=30)
-            self.browser.input_text('name=p', word + Keys.ENTER)
+            self.browser.open_available_browser(url)
+            self.logger.info(f"Opening URL: {url}")
+
+            # Wait for the search button to be visible and click it
+            self.browser.wait_until_element_is_visible('id=ybar-sbq', timeout=30)
+            
+            # Locate the search box and input the search term
+            search_box = self.browser.find_element('name=p')
+            self.browser.input_text(search_box, word)
+            self.browser.submit_form(search_box)
             self.logger.info(f"Input search keyword: {word}")
 
             # Wait until the results page is loaded in the new tab
