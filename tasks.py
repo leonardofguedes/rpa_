@@ -5,20 +5,20 @@ from robocorp import workitems
 
 @task
 def minimal_task():
-    max_retries = 3  # Number of retries in case of failure
+    max_retries = 5  # Number of retries in case of failure
     start_time = time.time()
 
     item = workitems.inputs
     payload = item.current.payload if item.current else None
     
-    search_phrase = payload.get('search_phrase', 'python dev') if payload else 'python dev'
+    search_phrase = payload.get('search_phrase', 'car sale increase') if payload else 'car sale increase'
     months = payload.get('months', 1) if payload else 1
     
     for attempt in range(max_retries):
         try:
             selenium = CustomSelenium()
             selenium.open_browser('https://news.yahoo.com/', search_phrase, months)
-            print("Done.")
+            # print("Done.")
             break  
         except Exception as e:
             print(f"Attempt {attempt + 1} failed: {e}")
